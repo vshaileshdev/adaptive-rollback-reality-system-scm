@@ -47,19 +47,19 @@ def analyze_root_cause(trajectory: List[PhysicalStateVector]) -> Dict:
             contribution = (max_deviation * time_factor)
             deviations.append({
                 "parameter": param,
-                "max_deviation_z": max_deviation,
-                "first_deviation_index": first_deviation_idx,
-                "contribution_score": contribution
+                "max_deviation_z": float(max_deviation),
+                "first_deviation_index": int(first_deviation_idx),
+                "contribution_score": float(contribution)
             })
-            
+
     # Normalize contribution scores
     total_score = sum(d["contribution_score"] for d in deviations)
     if total_score > 0:
         for d in deviations:
-            d["contribution_percent"] = (d["contribution_score"] / total_score) * 100
+            d["contribution_percent"] = float((d["contribution_score"] / total_score) * 100)
     else:
         for d in deviations:
-            d["contribution_percent"] = 0
+            d["contribution_percent"] = 0.0
             
     deviations.sort(key=lambda x: x["contribution_percent"], reverse=True)
     

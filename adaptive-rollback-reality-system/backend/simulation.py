@@ -58,6 +58,11 @@ class SimulationEngine:
                 # 6. Ring buffer
                 ring_buffer.append(psv)
 
+                is_trajectory_ready = ring_buffer.last_extracted_trajectory is not None
+                if ring_buffer.is_locked and is_trajectory_ready:
+                    # Post-failure window capture complete: hold playback state for trajectory replay
+                    self.is_running = False
+
                 # 7. Optionally save to DB (only if checkpoint says so)
                 if should_save:
                     db = SessionLocal()
@@ -73,7 +78,8 @@ class SimulationEngine:
                     "metrics": checkpoint_controller.get_metrics(),
                     "buffer_locked": ring_buffer.is_locked,
                     "failure_event": ring_buffer.failure_event,
-                    "trajectory_ready": ring_buffer.last_extracted_trajectory is not None
+                    "trajectory_ready": is_trajectory_ready,
+                    "simulation_running": self.is_running
                 })
 
                 # Separation of playback pacing (0.1s tick) from dataset timestamp

@@ -2,7 +2,7 @@ import os
 from pydantic import BaseModel
 
 class Config(BaseModel):
-    DATABASE_URL: str = "sqlite:///./database/machine_data.db"
+    DATABASE_URL: str = os.environ.get("DATABASE_URL", "sqlite:///./database/machine_data.db")
 
     # Anomaly thresholds
     WARNING_THRESHOLD: float = 0.50

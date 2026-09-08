@@ -25,6 +25,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+# Isolate database writes to memory during tests to protect database/machine_data.db
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 from backend.config import settings
 from backend.dataset_loader import DatasetLoader, dataset_loader
 from backend.physical_state_vector import PhysicalStateVector

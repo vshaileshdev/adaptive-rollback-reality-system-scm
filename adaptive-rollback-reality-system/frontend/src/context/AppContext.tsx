@@ -16,6 +16,7 @@ interface AppContextType {
   startSimulation: () => void;
   stopSimulation: () => void;
   triggerFailure: () => void;
+  resetSimulation: () => void;
   setReplayMode: (val: boolean) => void;
   stepForward: () => void;
   stepBackward: () => void;
@@ -34,7 +35,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentState, setCurrentState] = useState<PhysicalStateVector | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [history, setHistory] = useState<PhysicalStateVector[]>([]);
-  
+
   const [replayMode, setReplayMode] = useState(false);
   const [replayState, setReplayState] = useState<PhysicalStateVector | null>(null);
   const [replayTrajectory, setReplayTrajectory] = useState<PhysicalStateVector[]>([]);
@@ -53,52 +54,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     trajectoryReadyRef.current = trajectoryReady;
   }, [trajectoryReady]);
 
-  useEffect(() => {
-    // Initial fetch
-    axios.get(`${API_URL}/status`).then(res => {
-      setStatus(res.data.status);
-      setBufferLocked(res.data.buffer_locked);
-      setSimulationRunning(res.data.simulation_running);
-    }).catch(console.error);
-
-    axios.get(`${API_URL}/metrics`).then(res => setMetrics(res.data)).catch(console.error);
-
-    // WebSocket connection
-    const ws = new WebSocket(WS_URL);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'state_update') {
-        setCurrentState(data.data);
-        setMetrics(data.metrics);
-        setBufferLocked(data.buffer_locked);
-        setTrajectoryReady(data.trajectory_ready);
-        
-        setHistory(prev => {
-          const newHistory = [...prev, data.data];
-          if (newHistory.length > 50) newHistory.shift(); // keep last 50 for live chart
-          return newHistory;
-        });
-
-        if (data.trajectory_ready && !trajectoryReadyRef.current) {
-          // trajectory just became ready, fetch trajectory
-          fetchTrajectory();
-        }
-      }
-    };
-
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      } else if (ws.readyState === WebSocket.CONNECTING) {
-        ws.onopen = () => ws.close();
-      }
-    };
-  }, []);
-
-  const startSimulation = () => axios.post(`${API_URL}/simulation/start`);
-  const stopSimulation = () => axios.post(`${API_URL}/simulation/stop`);
-  const triggerFailure = () => axios.post(`${API_URL}/simulation/failure`);
-
   const fetchTrajectory = () => {
     axios.get(`${API_URL}/trajectory/latest`).then(res => {
       if (res.data && res.data.trajectory) {
@@ -106,6 +61,129 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setRootCause(res.data.root_cause);
       }
     }).catch(console.error);
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    axios.get(`${API_URL}/status`).then(res => {
+      setStatus(res.data.status);
+      setBufferLocked(res.data.buffer_locked);
+      setSimulationRunning(res.data.simulation_running);
+      if (res.data.trajectory_ready || res.data.buffer_locked) {
+        fetchTrajectory();
+      }
+    }).catch(console.error);
+
+    axios.get(`${API_URL}/metrics`).then(res => setMetrics(res.data)).catch(console.error);
+
+    // WebSocket connection with auto-reconnect
+    let isMounted = true;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectWs = () => {
+      if (!isMounted) return;
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        if (isMounted) setStatus('SYSTEM ONLINE');
+      };
+
+      ws.onclose = () => {
+        if (isMounted) {
+          setStatus('OFFLINE');
+          reconnectTimer = setTimeout(connectWs, 2000);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'state_update') {
+            if (data.data !== undefined) {
+              setCurrentState(data.data);
+            }
+            if (data.metrics !== undefined) {
+              setMetrics(data.metrics);
+            }
+            if (data.buffer_locked !== undefined) {
+              setBufferLocked(data.buffer_locked);
+            }
+            if (data.trajectory_ready !== undefined) {
+              setTrajectoryReady(data.trajectory_ready);
+            }
+            if (data.simulation_running !== undefined) {
+              setSimulationRunning(data.simulation_running);
+            }
+
+            if (data.data) {
+              setHistory(prev => {
+                const newHistory = [...prev, data.data];
+                if (newHistory.length > 50) newHistory.shift(); // keep last 50 for live chart
+                return newHistory;
+              });
+            }
+
+            if (data.trajectory_ready && !trajectoryReadyRef.current) {
+              fetchTrajectory();
+            }
+          }
+        } catch (err) {
+          console.error('Error parsing WS message:', err);
+        }
+      };
+    };
+
+    connectWs();
+
+    return () => {
+      isMounted = false;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) {
+        const socket = ws;
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        } else if (socket.readyState === WebSocket.CONNECTING) {
+          socket.onopen = () => socket.close();
+        }
+      }
+    };
+  }, []);
+
+  const startSimulation = () => {
+    setReplayMode(false);
+    setReplayState(null);
+    setSimulationRunning(true);
+    axios.post(`${API_URL}/simulation/start`).catch(console.error);
+  };
+
+  const stopSimulation = () => {
+    setSimulationRunning(false);
+    axios.post(`${API_URL}/simulation/stop`).catch(console.error);
+  };
+
+  const triggerFailure = () => {
+    setReplayMode(false);
+    setReplayState(null);
+    setTrajectoryReady(false);
+    setBufferLocked(false);
+    setRootCause(null);
+    setReplayTrajectory([]);
+    setSimulationRunning(true);
+    axios.post(`${API_URL}/simulation/failure`).catch(console.error);
+  };
+
+  const resetSimulation = () => {
+    setReplayMode(false);
+    setReplayState(null);
+    setTrajectoryReady(false);
+    setBufferLocked(false);
+    setRootCause(null);
+    setReplayTrajectory([]);
+    setCurrentState(null);
+    setHistory([]);
+    setSimulationRunning(false);
+    axios.post(`${API_URL}/simulation/reset`).catch(console.error);
   };
 
   const stepForward = () => {
@@ -130,7 +208,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       status, bufferLocked, simulationRunning, currentState, metrics, history,
       replayMode, replayState, rootCause, replayTrajectory,
-      startSimulation, stopSimulation, triggerFailure, setReplayMode,
+      startSimulation, stopSimulation, triggerFailure, resetSimulation, setReplayMode,
       stepForward, stepBackward, resetReplay, fetchTrajectory
     }}>
       {children}

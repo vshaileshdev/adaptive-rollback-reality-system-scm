@@ -17,7 +17,7 @@ class ConnectionManager:
     async def broadcast_state(self, message: dict):
         # Broadcast the current state to all connected clients
         payload = json.dumps(message)
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(payload)
             except Exception as e:

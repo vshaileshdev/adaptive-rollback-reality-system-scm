@@ -41,7 +41,8 @@ def get_status():
     return {
         "status": "SYSTEM ONLINE",
         "buffer_locked": ring_buffer.is_locked,
-        "simulation_running": simulation_engine.is_running
+        "simulation_running": simulation_engine.is_running,
+        "trajectory_ready": ring_buffer.last_extracted_trajectory is not None
     }
 
 @app.get("/api/metrics")
@@ -55,6 +56,9 @@ def get_ring_buffer():
 
 @app.post("/api/simulation/start")
 async def start_simulation():
+    if ring_buffer.is_locked:
+        ring_buffer.reset()
+        replay_engine.reset()
     simulation_engine.start()
     return {"status": "started"}
 
@@ -67,6 +71,20 @@ async def stop_simulation():
 async def force_failure():
     simulation_engine.trigger_failure()
     return {"status": "Failure demo positioned at pre-failure timestamp"}
+
+@app.post("/api/simulation/reset")
+async def reset_simulation():
+    simulation_engine.reset()
+    await manager.broadcast_state({
+        "type": "state_update",
+        "data": None,
+        "metrics": checkpoint_controller.get_metrics(),
+        "buffer_locked": False,
+        "failure_event": None,
+        "trajectory_ready": False,
+        "simulation_running": False
+    })
+    return {"status": "reset"}
 
 @app.get("/api/trajectory/latest")
 def get_latest_trajectory():

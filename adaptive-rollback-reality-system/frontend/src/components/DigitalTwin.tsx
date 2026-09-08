@@ -26,7 +26,15 @@ export const DigitalTwin: React.FC<Props> = ({ state }) => {
 
   return (
     <div className="p-6 border rounded shadow bg-white flex flex-col items-center">
-      <h3 className="text-xl font-bold mb-4">Digital Twin</h3>
+      <div className="flex justify-between items-center w-full mb-2">
+        <h3 className="text-xl font-bold">Digital Twin</h3>
+        <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded">
+          {state.device_id}
+        </span>
+      </div>
+      <div className="text-xs font-mono text-slate-500 mb-4 w-full text-right">
+        {state.timestamp}
+      </div>
       <div className={`w-48 h-48 rounded-full flex flex-col items-center justify-center transition-colors duration-300 ${colorClass} ${pulseClass}`}>
         <span className="text-2xl font-black">{state.machine_status}</span>
         {state.rotational_speed > 0 && (
@@ -38,18 +46,24 @@ export const DigitalTwin: React.FC<Props> = ({ state }) => {
             </svg>
         )}
       </div>
-      <div className="mt-6 grid grid-cols-2 gap-4 w-full text-sm">
+      <div className="mt-6 grid grid-cols-2 gap-3 w-full text-sm">
         <div className="bg-slate-100 p-2 rounded">
-          <span className="font-semibold text-slate-500">Temp:</span> {state.air_temperature.toFixed(1)}°C
+          <span className="font-semibold text-slate-500">Air Temp:</span> {state.air_temperature.toFixed(1)}°C
         </div>
         <div className="bg-slate-100 p-2 rounded">
-          <span className="font-semibold text-slate-500">Vibration:</span> {state.vibration.toFixed(2)}
+          <span className="font-semibold text-slate-500">Proc Temp:</span> {state.process_temperature.toFixed(1)}°C
+        </div>
+        <div className="bg-slate-100 p-2 rounded">
+          <span className="font-semibold text-slate-500">Vibration:</span> {state.vibration.toFixed(4)}
         </div>
         <div className="bg-slate-100 p-2 rounded">
           <span className="font-semibold text-slate-500">Speed:</span> {state.rotational_speed.toFixed(0)} rpm
         </div>
         <div className="bg-slate-100 p-2 rounded">
           <span className="font-semibold text-slate-500">Torque:</span> {state.torque.toFixed(1)} Nm
+        </div>
+        <div className="bg-slate-100 p-2 rounded">
+          <span className="font-semibold text-slate-500">Anomaly:</span> {state.anomaly_score.toFixed(3)}
         </div>
       </div>
     </div>

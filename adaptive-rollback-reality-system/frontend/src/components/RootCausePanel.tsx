@@ -42,7 +42,13 @@ export const RootCausePanel: React.FC = () => {
               <li key={i} className="p-3 border rounded bg-slate-50 flex justify-between items-center">
                 <div>
                   <span className="font-bold text-slate-800 block">{i+1}. {cause.parameter.replace("_", " ").toUpperCase()}</span>
-                  <span className="text-sm text-slate-500">First deviation: T-{Math.max(0, 15 - cause.first_deviation_index)}</span>
+                  {cause.first_deviation_index !== -1 ? (
+                    <span className="text-sm text-slate-500">
+                      Deviation at Step {cause.first_deviation_index + 1} (Max Z: {cause.max_deviation_z.toFixed(2)}σ)
+                    </span>
+                  ) : (
+                    <span className="text-sm text-slate-400 italic">Nominal baseline (Max Z: {cause.max_deviation_z.toFixed(2)}σ)</span>
+                  )}
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-critical block">{cause.contribution_percent.toFixed(1)}%</span>
