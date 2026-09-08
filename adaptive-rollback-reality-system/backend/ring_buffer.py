@@ -22,12 +22,12 @@ class RingBuffer:
                 self.buffer[self.head] = psv
                 self.head = (self.head + 1) % self.capacity
                 self.post_failure_counter += 1
-                
+
                 # Once we gathered the post-failure states, extract trajectory
                 if self.post_failure_counter == settings.POST_FAILURE_WINDOW:
                     self._extract_and_analyze()
             return
-            
+
         self.buffer[self.head] = psv
         self.head = (self.head + 1) % self.capacity
 
@@ -41,7 +41,17 @@ class RingBuffer:
         self.is_locked = False
         self.failure_event = None
         self.post_failure_counter = 0
-        
+
+    def reset(self):
+        """Cleanly resets buffer, locks, failure events, and extracted trajectories."""
+        self.buffer = [None] * self.capacity
+        self.head = 0
+        self.is_locked = False
+        self.post_failure_counter = 0
+        self.failure_event = None
+        self.last_extracted_trajectory = None
+        self.last_root_cause = None
+
     def _extract_and_analyze(self):
         # Extract the ordered history from the circular buffer
         ordered_states = []
@@ -50,14 +60,14 @@ class RingBuffer:
             state = self.buffer[idx]
             if state is not None:
                 ordered_states.append(state)
-                
+
         # The trajectory extraction
         self.last_extracted_trajectory = extract_trajectory(
-            ordered_states, 
-            settings.PRE_FAILURE_WINDOW, 
+            ordered_states,
+            settings.PRE_FAILURE_WINDOW,
             settings.POST_FAILURE_WINDOW
         )
-        
+
         # Root cause analysis
         if self.last_extracted_trajectory:
             self.last_root_cause = analyze_root_cause(self.last_extracted_trajectory)

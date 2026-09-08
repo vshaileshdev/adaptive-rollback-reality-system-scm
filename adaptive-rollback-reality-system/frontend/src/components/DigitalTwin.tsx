@@ -10,7 +10,7 @@ export const DigitalTwin: React.FC<Props> = ({ state }) => {
 
   let colorClass = "bg-normal text-white";
   let pulseClass = "";
-  
+
   if (state.machine_status === "WARNING") {
     colorClass = "bg-warning text-white";
     pulseClass = "animate-pulse";
@@ -30,8 +30,8 @@ export const DigitalTwin: React.FC<Props> = ({ state }) => {
       <div className={`w-48 h-48 rounded-full flex flex-col items-center justify-center transition-colors duration-300 ${colorClass} ${pulseClass}`}>
         <span className="text-2xl font-black">{state.machine_status}</span>
         {state.rotational_speed > 0 && (
-            <svg 
-              className="mt-4 w-12 h-12 text-white opacity-80" 
+            <svg
+              className="mt-4 w-12 h-12 text-white opacity-80"
               style={{ animation: `spin ${rotationDuration} linear infinite` }}
               fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -40,7 +40,7 @@ export const DigitalTwin: React.FC<Props> = ({ state }) => {
       </div>
       <div className="mt-6 grid grid-cols-2 gap-4 w-full text-sm">
         <div className="bg-slate-100 p-2 rounded">
-          <span className="font-semibold text-slate-500">Temp:</span> {state.air_temperature.toFixed(1)}K
+          <span className="font-semibold text-slate-500">Temp:</span> {state.air_temperature.toFixed(1)}°C
         </div>
         <div className="bg-slate-100 p-2 rounded">
           <span className="font-semibold text-slate-500">Vibration:</span> {state.vibration.toFixed(2)}

@@ -62,13 +62,11 @@ async def start_simulation():
 async def stop_simulation():
     simulation_engine.stop()
     return {"status": "stopped"}
-    
+
 @app.post("/api/simulation/failure")
 async def force_failure():
-    from .dataset_loader import dataset_loader
-    # Our demo dataset has 200 normal points then 1 failure at index 200.
-    dataset_loader.current_idx = 200
-    return {"status": "Failure injected next tick"}
+    simulation_engine.trigger_failure()
+    return {"status": "Failure demo positioned at pre-failure timestamp"}
 
 @app.get("/api/trajectory/latest")
 def get_latest_trajectory():
@@ -84,7 +82,7 @@ def replay_start():
     if ring_buffer.last_extracted_trajectory:
         replay_engine.load_trajectory(ring_buffer.last_extracted_trajectory)
     return {"status": "ready"}
-    
+
 @app.post("/api/replay/step-forward")
 def replay_step_forward():
     state = replay_engine.step_forward()
@@ -94,7 +92,7 @@ def replay_step_forward():
 def replay_step_backward():
     state = replay_engine.step_backward()
     return {"state": state.model_dump() if state else None}
-    
+
 @app.post("/api/replay/reset")
 def replay_reset():
     replay_engine.reset()
@@ -115,29 +113,29 @@ async def receive_iot_data(payload: IoTPayload):
         current=payload.current,
         tool_wear=0.0
     )
-    
+
     score, status = detector.calculate_anomaly_score(psv)
     psv.anomaly_score = score
-    
+
     freq, should_save = checkpoint_controller.evaluate(status)
     psv.checkpoint_level = status
     psv.machine_status = status
-    
+
     is_fail, fail_details = failure_detector.evaluate(psv, score)
     if is_fail:
         psv.machine_status = "FAILURE"
         psv.is_failure = True
         ring_buffer.lock(fail_details)
-        
+
     ring_buffer.append(psv)
-    
+
     if should_save:
         db = SessionLocal()
         db_state = MachineStateDB(**psv.model_dump())
         db.add(db_state)
         db.commit()
         db.close()
-        
+
     await manager.broadcast_state({
         "type": "state_update",
         "data": psv.model_dump(),
@@ -146,7 +144,7 @@ async def receive_iot_data(payload: IoTPayload):
         "failure_event": ring_buffer.failure_event,
         "trajectory_ready": ring_buffer.last_extracted_trajectory is not None
     })
-    
+
     return {"status": "received"}
 
 if __name__ == "__main__":

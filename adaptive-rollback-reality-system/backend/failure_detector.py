@@ -4,43 +4,38 @@ from .config import settings
 class FailureDetector:
     def evaluate(self, psv: PhysicalStateVector, normalized_score: float) -> tuple[bool, dict]:
         """
-        Returns (is_failure, failure_details_dict)
+        Evaluates runtime physical telemetry for actual physical failure conditions.
+        Returns (is_failure, failure_details_dict).
+        Anomaly score drives adaptive checkpointing; physical limits drive failure state.
         """
-        # A dataset explicitly telling us it's a failure
-        if psv.is_failure:
-            return True, {
-                "reason": "Dataset Label",
-                "score": 1.0,
-                "timestamp": psv.timestamp
-            }
-            
-        # Or anomaly score is above critical
-        # Actually in this system, maybe CRITICAL state means we check failure?
-        # The prompt says: Trigger failure if anomaly > critical OR safety limits exceeded.
-        # Let's say anomaly_score > 0.95 is a failure
-        if normalized_score >= 0.95:
-            return True, {
-                "reason": "Critical Anomaly Score",
-                "score": normalized_score,
-                "timestamp": psv.timestamp
-            }
-            
-        # Hard safety limits (example bounds based on typical AI4I dataset values)
-        if psv.air_temperature > 310.0 or psv.process_temperature > 320.0:
+        # 1. Temperature Safety Limits (Celsius)
+        if (psv.air_temperature > settings.MAX_AIR_TEMP_CELSIUS or
+            psv.process_temperature > settings.MAX_PROCESS_TEMP_CELSIUS):
             return True, {
                 "reason": "Temperature Safety Limit Exceeded",
                 "score": normalized_score,
                 "timestamp": psv.timestamp
             }
-            
-        if psv.rotational_speed > 2900 or psv.rotational_speed < 1100:
+
+        # 3. Vibration Safety Limit (RMS mm/s)
+        if psv.vibration > settings.MAX_VIBRATION_RMS:
+            return True, {
+                "reason": "Vibration Safety Limit Exceeded",
+                "score": normalized_score,
+                "timestamp": psv.timestamp
+            }
+
+        # 4. Rotational Speed Limits (RPM)
+        if (psv.rotational_speed > settings.MAX_SPEED_RPM or
+            psv.rotational_speed < settings.MIN_SPEED_RPM):
             return True, {
                 "reason": "Rotational Speed Out of Bounds",
                 "score": normalized_score,
                 "timestamp": psv.timestamp
             }
-            
-        if psv.torque > 75.0:
+
+        # 5. Torque Overload (Nm)
+        if psv.torque > settings.MAX_TORQUE_NM:
             return True, {
                 "reason": "Torque Overload",
                 "score": normalized_score,
@@ -48,5 +43,25 @@ class FailureDetector:
             }
 
         return False, {}
+
+    def find_first_physical_failure(self, df) -> tuple:
+        """
+        Scans a dataframe chronologically using the physical safety limits
+        to find the first failure row index and timestamp.
+        Returns (first_idx, first_timestamp_str) or (None, None).
+        """
+        mask = (
+            (df["air_temperature"] > settings.MAX_AIR_TEMP_CELSIUS) |
+            (df["process_temperature"] > settings.MAX_PROCESS_TEMP_CELSIUS) |
+            (df["vibration"] > settings.MAX_VIBRATION_RMS) |
+            (df["rotational_speed"] > settings.MAX_SPEED_RPM) |
+            (df["rotational_speed"] < settings.MIN_SPEED_RPM) |
+            (df["torque"] > settings.MAX_TORQUE_NM)
+        )
+        matches = df[mask]
+        if not matches.empty:
+            first_idx = int(matches.index[0])
+            return first_idx, str(matches.iloc[0]["timestamp"])
+        return None, None
 
 failure_detector = FailureDetector()
