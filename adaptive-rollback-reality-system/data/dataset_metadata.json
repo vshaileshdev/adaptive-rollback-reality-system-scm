@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-09-08 20:49:09",
+  "random_seed": 42,
+  "num_machines": 5,
+  "total_observations": 10000,
+  "sampling_interval_seconds": 2,
+  "disclaimer": "Synthetic physically-inspired temporal machine telemetry for digital-twin simulation and adaptive rollback experimentation.",
+  "sensor_units": {
+    "air_temperature": "\u00b0C",
+    "process_temperature": "\u00b0C",
+    "humidity": "%",
+    "vibration": "mm/s RMS",
+    "rotational_speed": "RPM",
+    "torque": "Nm",
+    "tool_wear": "minutes",
+    "current": "Amperes",
+    "power": "Watts"
+  }
+}
