@@ -20,6 +20,7 @@ export const Dashboard: React.FC = () => {
       <header className="mb-8 flex justify-between items-center bg-white p-4 rounded shadow border-l-4 border-slate-900">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Adaptive Rollback Reality System</h1>
+          <p className="text-xs text-slate-500 font-medium">Deterministic machine-state checkpointing, ring-buffer capture &amp; historical trajectory reconstruction</p>
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span className="flex items-center gap-1 text-sm font-bold">
               <span className={`w-3 h-3 rounded-full ${status === 'SYSTEM ONLINE' ? 'bg-normal' : 'bg-slate-400'}`}></span>

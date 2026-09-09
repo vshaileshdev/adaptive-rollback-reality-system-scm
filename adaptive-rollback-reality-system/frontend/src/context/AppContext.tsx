@@ -169,6 +169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBufferLocked(false);
     setRootCause(null);
     setReplayTrajectory([]);
+    setHistory([]);
     setSimulationRunning(true);
     axios.post(`${API_URL}/simulation/failure`).catch(console.error);
   };
