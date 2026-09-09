@@ -19,6 +19,24 @@ export interface Metrics {
     total_states_received: number;
     total_checkpoints: number;
     storage_saved: number;
+    storage_reduction_percent?: number;
+    storage_reduction_ratio?: number;
+    checkpoints_by_status?: {
+        NORMAL: number;
+        WARNING: number;
+        CRITICAL: number;
+        FAILURE: number;
+    };
+    effective_intervals?: {
+        NORMAL: number;
+        WARNING: number;
+        CRITICAL: number;
+    };
+    target_intervals?: {
+        NORMAL: number;
+        WARNING: number;
+        CRITICAL: number;
+    };
 }
 
 export interface RootCause {

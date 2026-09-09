@@ -70,25 +70,67 @@ export const Dashboard: React.FC = () => {
           <DigitalTwin state={displayState} />
           
           <div className="p-6 border rounded shadow bg-white">
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Database size={20}/> Adaptive Checkpointing</h3>
+            <h3 className="text-xl font-bold mb-3 flex items-center gap-2"><Database size={20}/> Adaptive Checkpointing</h3>
+
+            {/* Target Spacing Schedule */}
+            <div className="mb-4 p-2 bg-slate-50 border rounded text-xs font-mono">
+              <div className="font-bold text-slate-700 mb-1">Target Spacing (Dataset Time):</div>
+              <div className="grid grid-cols-2 gap-1 text-slate-600">
+                <span>NORMAL: ~10s (5 rows)</span>
+                <span>WARNING: ~5s (2-3 rows)</span>
+                <span>CRITICAL: ~1s (every row)</span>
+                <span className="text-critical font-bold">FAILURE: LOCKED</span>
+              </div>
+            </div>
+
             {metrics ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-slate-500">States Received</span>
-                  <span className="font-mono font-bold text-lg">{metrics.total_states_received}</span>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b text-sm">
+                  <span className="text-slate-500">States Received (N)</span>
+                  <span className="font-mono font-bold text-base">{metrics.total_states_received}</span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-slate-500">Checkpoints Saved</span>
-                  <span className="font-mono font-bold text-lg text-normal">{metrics.total_checkpoints}</span>
+                <div className="flex justify-between items-center pb-2 border-b text-sm">
+                  <span className="text-slate-500">Checkpoints Saved (C)</span>
+                  <span className="font-mono font-bold text-base text-normal">{metrics.total_checkpoints}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Storage Saved</span>
-                  <span className="font-mono font-bold text-lg text-blue-600">
-                    {metrics.total_states_received > 0 
-                      ? ((metrics.storage_saved / metrics.total_states_received) * 100).toFixed(1) 
-                      : 0}%
-                  </span>
+                <div className="flex justify-between items-center pb-2 border-b text-sm">
+                  <span className="text-slate-500">Storage Reduction</span>
+                  <div className="text-right">
+                    <span className="font-mono font-bold text-base text-blue-600 block">
+                      {metrics.storage_reduction_percent !== undefined
+                        ? `${metrics.storage_reduction_percent}%`
+                        : (metrics.total_states_received > 0
+                            ? ((metrics.storage_saved / metrics.total_states_received) * 100).toFixed(1) + '%'
+                            : '0%')}
+                    </span>
+                    {metrics.storage_reduction_ratio && (
+                      <span className="text-xs text-slate-400 font-mono">
+                        {metrics.storage_reduction_ratio}x compression
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Checkpoint Distribution by Status */}
+                {metrics.checkpoints_by_status && (
+                  <div className="pt-1">
+                    <div className="text-xs text-slate-500 font-semibold mb-2">Checkpoints by Status:</div>
+                    <div className="grid grid-cols-3 gap-1 text-xs font-mono text-center">
+                      <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded p-1">
+                        <span className="block font-bold">NORM</span>
+                        {metrics.checkpoints_by_status.NORMAL}
+                      </div>
+                      <div className="bg-amber-50 text-amber-700 border border-amber-200 rounded p-1">
+                        <span className="block font-bold">WARN</span>
+                        {metrics.checkpoints_by_status.WARNING}
+                      </div>
+                      <div className="bg-red-50 text-red-700 border border-red-200 rounded p-1">
+                        <span className="block font-bold">CRIT</span>
+                        {metrics.checkpoints_by_status.CRITICAL}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-slate-500 text-sm">No metrics available.</p>

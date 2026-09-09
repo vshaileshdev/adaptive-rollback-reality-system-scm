@@ -135,7 +135,7 @@ async def receive_iot_data(payload: IoTPayload):
     score, status = detector.calculate_anomaly_score(psv)
     psv.anomaly_score = score
 
-    freq, should_save = checkpoint_controller.evaluate(status)
+    freq, should_save = checkpoint_controller.evaluate(status, timestamp=psv.timestamp)
     psv.checkpoint_level = status
     psv.machine_status = status
 
@@ -144,6 +144,9 @@ async def receive_iot_data(payload: IoTPayload):
         psv.machine_status = "FAILURE"
         psv.is_failure = True
         ring_buffer.lock(fail_details)
+        if not should_save:
+            checkpoint_controller.record_failure(timestamp=psv.timestamp)
+            should_save = True
 
     ring_buffer.append(psv)
 

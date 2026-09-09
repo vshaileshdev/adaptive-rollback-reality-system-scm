@@ -8,10 +8,17 @@ class Config(BaseModel):
     WARNING_THRESHOLD: float = 0.50
     CRITICAL_THRESHOLD: float = 0.80
 
-    # Checkpoint frequencies
+    # Checkpoint frequencies (fallback / state counts)
     NORMAL_CHECKPOINT_FREQ: int = 10
     WARNING_CHECKPOINT_FREQ: int = 5
     CRITICAL_CHECKPOINT_FREQ: int = 1
+
+    # Logical Checkpoint Target Intervals (Dataset Timeline Seconds)
+    # Note: 1.0s in CRITICAL is a logical maximum interval. Because dataset arrives every 2s,
+    # every available telemetry sample (1 sample) is saved in CRITICAL mode.
+    NORMAL_CHECKPOINT_INTERVAL_SEC: float = 10.0
+    WARNING_CHECKPOINT_INTERVAL_SEC: float = 5.0
+    CRITICAL_CHECKPOINT_INTERVAL_SEC: float = 1.0
 
     # Ring Buffer
     RING_BUFFER_CAPACITY: int = 100
