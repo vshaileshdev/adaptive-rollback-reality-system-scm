@@ -4,7 +4,96 @@ import { DigitalTwin } from './DigitalTwin';
 import { AnomalyChart } from './Charts';
 import { ReplayControls } from './ReplayControls';
 import { RootCausePanel } from './RootCausePanel';
-import { Play, Square, Database, Zap, RotateCcw } from 'lucide-react';
+import { Play, Square, Database, Zap, RotateCcw, HardDrive, Info, ChevronDown, ChevronUp } from 'lucide-react';
+
+const StoragePanel: React.FC = () => {
+  const { storageMetrics, metrics, simulationRunning } = useAppContext();
+  const [showDetails, setShowDetails] = React.useState(false);
+
+  if (!storageMetrics) {
+    return (
+      <div className="p-4 border rounded shadow bg-white text-slate-500 text-sm">
+        <HardDrive size={16} className="inline mr-2" /> Storage metrics unavailable
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 border rounded shadow bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold flex items-center gap-2"><HardDrive size={20} /> Storage & Checkpointing</h3>
+        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold border">
+          {simulationRunning ? 'REAL METRICS' : 'SIMULATED'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+        <div className="bg-slate-50 p-3 rounded border">
+          <div className="text-slate-500 font-semibold mb-1">States Received</div>
+          <div className="font-mono text-lg font-black">{storageMetrics.states_received}</div>
+        </div>
+        <div className="bg-slate-50 p-3 rounded border">
+          <div className="text-slate-500 font-semibold mb-1">Snapshots Stored</div>
+          <div className="font-mono text-lg font-black text-blue-600">{storageMetrics.snapshots_stored}</div>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center text-sm border-b pb-2 mb-2">
+        <span className="text-slate-600 font-semibold">Logical payload reduction</span>
+        <span className="font-mono font-bold text-green-600">{storageMetrics.storage_reduction_percent.toFixed(2)}%</span>
+      </div>
+
+      <div className="flex justify-between items-center text-sm border-b pb-2 mb-4">
+        <span className="text-slate-600 font-semibold">Average Change Score</span>
+        <span className="font-mono font-bold">{storageMetrics.average_change_score.toFixed(4)}</span>
+      </div>
+
+      <button 
+        onClick={() => setShowDetails(!showDetails)}
+        className="w-full flex justify-between items-center bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded text-sm font-bold transition-colors"
+      >
+        <span className="flex items-center gap-2"><Info size={16} /> Storage Details</span>
+        {showDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {showDetails && (
+        <div className="mt-3 p-4 bg-slate-50 border rounded text-sm space-y-4">
+          
+          <div>
+            <h4 className="font-bold text-slate-700 mb-2 border-b pb-1">Payload Metrics</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div className="text-slate-500">Raw logical payload:</div><div className="text-right">{storageMetrics.raw_payload_bytes} B</div>
+              <div className="text-slate-500">Stored logical payload:</div><div className="text-right">{storageMetrics.stored_payload_bytes} B</div>
+              <div className="text-slate-500">Bytes saved:</div><div className="text-right text-green-600 font-bold">{storageMetrics.bytes_saved} B</div>
+              <div className="text-slate-500">Reduction percentage:</div><div className="text-right">{storageMetrics.storage_reduction_percent.toFixed(2)}%</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-700 mb-2 border-b pb-1">Checkpoint Breakdown</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div className="text-slate-500">FULL:</div><div className="text-right">{storageMetrics.full_snapshots} (avg {storageMetrics.average_full_bytes.toFixed(0)} B)</div>
+              <div className="text-slate-500">DELTA:</div><div className="text-right">{storageMetrics.delta_snapshots} (avg {storageMetrics.average_delta_bytes.toFixed(0)} B)</div>
+              <div className="text-slate-500">SKIPPED:</div><div className="text-right">{storageMetrics.skipped_states}</div>
+              <div className="text-slate-500">FAILURE:</div><div className="text-right">{metrics?.checkpoints_by_status?.FAILURE || 0}</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-700 mb-2 border-b pb-1">Decision Explanation (Adaptive Delta Checkpointing)</h4>
+            <div className="space-y-1 text-xs text-slate-600">
+              <p><strong className="text-emerald-700">NORMAL</strong> &rarr; lower checkpoint density (interval: {metrics?.target_intervals?.NORMAL?.toFixed(1) || '10.0'}s)</p>
+              <p><strong className="text-amber-700">WARNING</strong> &rarr; increased checkpoint density (interval: {metrics?.target_intervals?.WARNING?.toFixed(1) || '5.0'}s)</p>
+              <p><strong className="text-red-700">CRITICAL</strong> &rarr; high-resolution preservation (interval: {metrics?.target_intervals?.CRITICAL?.toFixed(1) || '1.0'}s)</p>
+              <p><strong className="text-slate-900">FAILURE</strong> &rarr; preserve forensic state</p>
+            </div>
+          </div>
+          
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const Dashboard: React.FC = () => {
   const { 
@@ -137,6 +226,7 @@ export const Dashboard: React.FC = () => {
               <p className="text-slate-500 text-sm">No metrics available.</p>
             )}
           </div>
+          <StoragePanel />
         </div>
 
         {/* Middle/Right Col - Charts & Controls */}

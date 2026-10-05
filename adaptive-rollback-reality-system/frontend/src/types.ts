@@ -49,4 +49,17 @@ export interface RootCause {
     }[];
     causal_graph: string[];
 }
-export const _dummy = 1;
+export interface StorageMetrics {
+    states_received: number;
+    snapshots_stored: number;
+    full_snapshots: number;
+    delta_snapshots: number;
+    skipped_states: number;
+    raw_payload_bytes: number;
+    stored_payload_bytes: number;
+    bytes_saved: number;
+    storage_reduction_percent: number;
+    average_full_bytes: number;
+    average_delta_bytes: number;
+    average_change_score: number;
+}

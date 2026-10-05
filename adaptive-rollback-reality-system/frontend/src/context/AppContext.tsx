@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import type { PhysicalStateVector, Metrics, RootCause } from '../types';
+import type { PhysicalStateVector, Metrics, RootCause, StorageMetrics } from '../types';
 // Force Vite HMR cache update
 
 interface AppContextType {
@@ -23,6 +23,7 @@ interface AppContextType {
   resetReplay: () => void;
   fetchTrajectory: () => void;
   replayTrajectory: PhysicalStateVector[];
+  storageMetrics: StorageMetrics | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -34,6 +35,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [simulationRunning, setSimulationRunning] = useState(false);
   const [currentState, setCurrentState] = useState<PhysicalStateVector | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [storageMetrics, setStorageMetrics] = useState<StorageMetrics | null>(null);
   const [history, setHistory] = useState<PhysicalStateVector[]>([]);
 
   const [replayMode, setReplayMode] = useState(false);
@@ -75,7 +77,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(console.error);
 
     axios.get(`${API_URL}/metrics`).then(res => setMetrics(res.data)).catch(console.error);
+    axios.get(`${API_URL}/storage/metrics`).then(res => setStorageMetrics(res.data)).catch(console.error);
 
+    const storageInterval = setInterval(() => {
+      axios.get(`${API_URL}/storage/metrics`).then(res => setStorageMetrics(res.data)).catch(console.error);
+    }, 2000);
     // WebSocket connection with auto-reconnect
     let isMounted = true;
     let ws: WebSocket | null = null;
@@ -138,6 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       isMounted = false;
+      clearInterval(storageInterval);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) {
         const socket = ws;
@@ -207,7 +214,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      status, bufferLocked, simulationRunning, currentState, metrics, history,
+      status, bufferLocked, simulationRunning, currentState, metrics, storageMetrics, history,
       replayMode, replayState, rootCause, replayTrajectory,
       startSimulation, stopSimulation, triggerFailure, resetSimulation, setReplayMode,
       stepForward, stepBackward, resetReplay, fetchTrajectory
