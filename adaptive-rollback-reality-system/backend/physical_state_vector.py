@@ -17,6 +17,15 @@ class PhysicalStateVector(BaseModel):
     checkpoint_level: str = "NORMAL"
     machine_status: str = "NORMAL"
     is_failure: bool = False
+    acceleration_x: Optional[float] = None
+    acceleration_y: Optional[float] = None
+    acceleration_z: Optional[float] = None
+    acceleration_magnitude: Optional[float] = None
+    voltage: Optional[float] = None
+    mechanical_position: Optional[float] = None
+    controller_state: Optional[str] = None
+    actuator_state: Optional[str] = None
+    machine_operating_mode: Optional[str] = None
 
 class IoTPayload(BaseModel):
     device_id: str
@@ -49,3 +58,12 @@ class MachineStateDB(Base):
     checkpoint_level = Column(String)
     machine_status = Column(String)
     is_failure = Column(Boolean, default=False)
+    acceleration_x = Column(Float, nullable=True)
+    acceleration_y = Column(Float, nullable=True)
+    acceleration_z = Column(Float, nullable=True)
+    acceleration_magnitude = Column(Float, nullable=True)
+    voltage = Column(Float, nullable=True)
+    mechanical_position = Column(Float, nullable=True)
+    controller_state = Column(String, nullable=True)
+    actuator_state = Column(String, nullable=True)
+    machine_operating_mode = Column(String, nullable=True)

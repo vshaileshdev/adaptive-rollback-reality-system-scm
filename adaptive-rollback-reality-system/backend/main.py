@@ -12,7 +12,29 @@ from .checkpoint_controller import checkpoint_controller
 from .ring_buffer import ring_buffer
 from .replay_engine import replay_engine
 from .failure_detector import failure_detector
+from .adaptive_snapshot_storage import storage_engine, SnapshotDB
 from datetime import datetime
+
+from sqlalchemy import inspect, text
+
+# Safe schema migration for patent-alignment hardware fields
+inspector = inspect(engine)
+if inspector.has_table("machine_states"):
+    columns = [col['name'] for col in inspector.get_columns("machine_states")]
+    with engine.begin() as conn:
+        for new_col, type_def in [
+            ("acceleration_x", "FLOAT"),
+            ("acceleration_y", "FLOAT"),
+            ("acceleration_z", "FLOAT"),
+            ("acceleration_magnitude", "FLOAT"),
+            ("voltage", "FLOAT"),
+            ("mechanical_position", "FLOAT"),
+            ("controller_state", "VARCHAR"),
+            ("actuator_state", "VARCHAR"),
+            ("machine_operating_mode", "VARCHAR"),
+        ]:
+            if new_col not in columns:
+                conn.execute(text(f"ALTER TABLE machine_states ADD COLUMN {new_col} {type_def}"))
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -48,6 +70,10 @@ def get_status():
 @app.get("/api/metrics")
 def get_metrics():
     return checkpoint_controller.get_metrics()
+
+@app.get("/api/storage/metrics")
+def get_storage_metrics():
+    return storage_engine.metrics.model_dump()
 
 @app.get("/api/ring-buffer")
 def get_ring_buffer():
@@ -135,7 +161,7 @@ async def receive_iot_data(payload: IoTPayload):
     score, status = detector.calculate_anomaly_score(psv)
     psv.anomaly_score = score
 
-    freq, should_save = checkpoint_controller.evaluate(status, timestamp=psv.timestamp)
+    target_interval, should_save = checkpoint_controller.evaluate(status, anomaly_score=score, timestamp=psv.timestamp)
     psv.checkpoint_level = status
     psv.machine_status = status
 
@@ -150,12 +176,7 @@ async def receive_iot_data(payload: IoTPayload):
 
     ring_buffer.append(psv)
 
-    if should_save:
-        db = SessionLocal()
-        db_state = MachineStateDB(**psv.model_dump())
-        db.add(db_state)
-        db.commit()
-        db.close()
+    storage_decision = storage_engine.evaluate_and_store(psv, interval_due_should_save=should_save, is_failure=is_fail)
 
     await manager.broadcast_state({
         "type": "state_update",

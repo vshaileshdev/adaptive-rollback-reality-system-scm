@@ -1,6 +1,7 @@
 from typing import List, Dict
 import numpy as np
 from .physical_state_vector import PhysicalStateVector
+from .anomaly_detection import detector
 
 def analyze_root_cause(trajectory: List[PhysicalStateVector]) -> Dict:
     """
@@ -9,45 +10,49 @@ def analyze_root_cause(trajectory: List[PhysicalStateVector]) -> Dict:
     if not trajectory or len(trajectory) < 2:
         return {"ranked_causes": [], "graph": []}
         
-    # Baseline is the first few states (assuming they are normal or at least the earliest)
-    baseline_states = trajectory[:max(1, len(trajectory) // 4)]
-    
-    # Calculate baseline means and std devs
     parameters = ["air_temperature", "process_temperature", "rotational_speed", "torque", "vibration"]
-    baselines = {}
     
-    for param in parameters:
-        values = [getattr(s, param) for s in baseline_states]
-        baselines[param] = {
-            "mean": np.mean(values),
-            "std": np.std(values) if np.std(values) > 0 else 1.0 # avoid division by zero
-        }
+    if not hasattr(detector, "baseline_stats") or not detector.baseline_stats:
+        raise RuntimeError("Initialization Error: A verified normal baseline is required for root cause analysis.")
+        
+    baselines = detector.baseline_stats
         
     deviations = []
     
-    # Analyze the rest of the trajectory
     for param in parameters:
         max_deviation = 0
         first_deviation_idx = -1
+        max_deviation_raw = 0.0
+        max_deviation_timestamp = None
         
         for i, state in enumerate(trajectory):
             val = getattr(state, param)
-            z_score = abs(val - baselines[param]["mean"]) / baselines[param]["std"]
+            
+            b_std = baselines[param]["std"]
+            if b_std == 0:
+                b_std = 1.0 # avoid division by zero
+                
+            z_score = abs(val - baselines[param]["mean"]) / b_std
             
             if z_score > 3.0 and first_deviation_idx == -1: # 3 sigma rule for "significant"
                 first_deviation_idx = i
                 
             if z_score > max_deviation:
                 max_deviation = z_score
+                max_deviation_raw = abs(val - baselines[param]["mean"])
+                max_deviation_timestamp = state.timestamp
                 
         if max_deviation > 0:
-            # We construct a heuristic score: 
-            # High score for earlier deviation (smaller index) and higher magnitude
             time_factor = (len(trajectory) - first_deviation_idx) / len(trajectory) if first_deviation_idx != -1 else 0
             contribution = (max_deviation * time_factor)
             deviations.append({
                 "parameter": param,
-                "max_deviation_z": float(max_deviation),
+                "baseline_value": float(baselines[param]["mean"]),
+                "observed_value": float(baselines[param]["mean"] + max_deviation_raw if val >= baselines[param]["mean"] else baselines[param]["mean"] - max_deviation_raw),
+                "deviation_raw": float(max_deviation_raw),
+                "normalized_deviation_z": float(max_deviation),
+                "timestamp": max_deviation_timestamp,
+                "relative_position": float(time_factor),
                 "first_deviation_index": int(first_deviation_idx),
                 "contribution_score": float(contribution)
             })

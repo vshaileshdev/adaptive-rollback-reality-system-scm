@@ -264,11 +264,11 @@ class TestPhaseDFinalization(unittest.TestCase):
         for key in expected_keys:
             self.assertIn(key, metrics, f"Metric '{key}' must be present in get_metrics()")
 
-        checkpoint_controller.evaluate("NORMAL", timestamp="2026-01-01 08:00:00")
-        checkpoint_controller.evaluate("NORMAL", timestamp="2026-01-01 08:00:02")
-        checkpoint_controller.evaluate("NORMAL", timestamp="2026-01-01 08:00:04")
-        checkpoint_controller.evaluate("CRITICAL", timestamp="2026-01-01 08:00:06")
-        checkpoint_controller.evaluate("CRITICAL", timestamp="2026-01-01 08:00:08")
+        checkpoint_controller.evaluate("NORMAL", anomaly_score=0.1, timestamp="2026-01-01 08:00:00")
+        checkpoint_controller.evaluate("NORMAL", anomaly_score=0.1, timestamp="2026-01-01 08:00:02")
+        checkpoint_controller.evaluate("NORMAL", anomaly_score=0.1, timestamp="2026-01-01 08:00:04")
+        checkpoint_controller.evaluate("CRITICAL", anomaly_score=0.9, timestamp="2026-01-01 08:00:06")
+        checkpoint_controller.evaluate("CRITICAL", anomaly_score=0.9, timestamp="2026-01-01 08:00:08")
 
         m = checkpoint_controller.get_metrics()
         self.assertEqual(m["total_states_received"], 5)

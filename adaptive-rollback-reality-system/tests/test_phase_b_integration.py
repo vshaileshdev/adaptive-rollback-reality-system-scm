@@ -104,8 +104,9 @@ class TestPhaseBIntegration(unittest.TestCase):
         self.assertEqual(status_normal, "NORMAL")
         self.assertLess(score_normal, settings.WARNING_THRESHOLD)
 
-        freq_normal, should_save = checkpoint_controller.evaluate(status_normal)
-        self.assertEqual(freq_normal, settings.NORMAL_CHECKPOINT_FREQ)
+        freq_normal, should_save = checkpoint_controller.evaluate(status_normal, anomaly_score=score_normal)
+        expected_interval = settings.NORMAL_CHECKPOINT_INTERVAL_SEC - (score_normal * (settings.NORMAL_CHECKPOINT_INTERVAL_SEC - settings.CRITICAL_CHECKPOINT_INTERVAL_SEC))
+        self.assertAlmostEqual(freq_normal, expected_interval, places=3)
 
         # 2. Critical anomalous state
         psv_critical = PhysicalStateVector(
@@ -124,12 +125,15 @@ class TestPhaseBIntegration(unittest.TestCase):
         self.assertEqual(status_crit, "CRITICAL")
         self.assertGreaterEqual(score_crit, settings.CRITICAL_THRESHOLD)
 
-        freq_crit, _ = checkpoint_controller.evaluate(status_crit)
-        self.assertEqual(freq_crit, settings.CRITICAL_CHECKPOINT_FREQ)
+        freq_crit, _ = checkpoint_controller.evaluate(status_crit, anomaly_score=score_crit)
+        expected_crit_interval = settings.NORMAL_CHECKPOINT_INTERVAL_SEC - (score_crit * (settings.NORMAL_CHECKPOINT_INTERVAL_SEC - settings.CRITICAL_CHECKPOINT_INTERVAL_SEC))
+        expected_crit_interval = max(settings.CRITICAL_CHECKPOINT_INTERVAL_SEC, expected_crit_interval) # clamp if > 1.0
+        self.assertAlmostEqual(freq_crit, expected_crit_interval, places=3)
 
         # 3. Warning evaluation
-        freq_warn, _ = checkpoint_controller.evaluate("WARNING")
-        self.assertEqual(freq_warn, settings.WARNING_CHECKPOINT_FREQ)
+        freq_warn, _ = checkpoint_controller.evaluate("WARNING", anomaly_score=0.6)
+        expected_warn_interval = settings.NORMAL_CHECKPOINT_INTERVAL_SEC - (0.6 * (settings.NORMAL_CHECKPOINT_INTERVAL_SEC - settings.CRITICAL_CHECKPOINT_INTERVAL_SEC))
+        self.assertAlmostEqual(freq_warn, expected_warn_interval, places=3)
 
     def test_04_failure_demo_positioning(self):
         """Requirement 4: Trigger failure demo endpoint and verify pre-failure positioning."""

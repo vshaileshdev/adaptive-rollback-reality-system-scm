@@ -34,23 +34,14 @@ class CheckpointController:
             "CRITICAL": []
         }
 
-    def evaluate(self, status: str, timestamp: Optional[Union[str, datetime]] = None) -> tuple[int, bool]:
+    def evaluate(self, status: str, anomaly_score: float = 0.0, timestamp: Optional[Union[str, datetime]] = None) -> tuple[float, bool]:
         """
         Evaluates whether the incoming telemetry state warrants a checkpoint.
-        Uses logical dataset time intervals when timestamp is provided, with
-        state-count fallback for backward compatibility.
+        Uses continuous anomaly score to dynamically map to target logical intervals.
         """
         self.total_states_received += 1
         norm_status = status if status in self.states_by_status else "NORMAL"
         self.states_by_status[norm_status] = self.states_by_status.get(norm_status, 0) + 1
-
-        # Checkpoint frequency integer mapping for backward compatibility
-        if status == "CRITICAL":
-            freq = settings.CRITICAL_CHECKPOINT_FREQ
-        elif status == "WARNING":
-            freq = settings.WARNING_CHECKPOINT_FREQ
-        else:
-            freq = settings.NORMAL_CHECKPOINT_FREQ
 
         should_save = False
         current_dt: Optional[datetime] = None
@@ -64,22 +55,22 @@ class CheckpointController:
             elif isinstance(timestamp, datetime):
                 current_dt = timestamp
 
+        # Determine target_interval continuously from anomaly_score (0.0 to 1.0)
+        max_interval = settings.NORMAL_CHECKPOINT_INTERVAL_SEC
+        min_interval = settings.CRITICAL_CHECKPOINT_INTERVAL_SEC
+        if status == "FAILURE":
+            target_interval = 0.0
+        else:
+            # Linear interpolation based on anomaly score
+            target_interval = max_interval - (anomaly_score * (max_interval - min_interval))
+            target_interval = max(min_interval, min(max_interval, target_interval))
+
         if current_dt is not None:
             if self.last_checkpoint_timestamp is None:
                 # First received telemetry state is always checkpointed
                 should_save = True
             else:
                 elapsed = (current_dt - self.last_checkpoint_timestamp).total_seconds()
-
-                # Determine logical dataset interval target
-                if status == "CRITICAL":
-                    target_interval = settings.CRITICAL_CHECKPOINT_INTERVAL_SEC
-                elif status == "WARNING":
-                    target_interval = settings.WARNING_CHECKPOINT_INTERVAL_SEC
-                elif status == "FAILURE":
-                    target_interval = 0.0
-                else:
-                    target_interval = settings.NORMAL_CHECKPOINT_INTERVAL_SEC
 
                 # Status escalation trigger: capture transitions to higher risk immediately
                 current_severity = STATUS_SEVERITY.get(norm_status, 0)
@@ -93,6 +84,12 @@ class CheckpointController:
         else:
             # Fallback to modulo state count for callers without timestamps
             self.state_counter += 1
+            if status == "CRITICAL":
+                freq = settings.CRITICAL_CHECKPOINT_FREQ
+            elif status == "WARNING":
+                freq = settings.WARNING_CHECKPOINT_FREQ
+            else:
+                freq = settings.NORMAL_CHECKPOINT_FREQ
             if self.state_counter >= freq:
                 should_save = True
                 self.state_counter = 0
@@ -104,7 +101,7 @@ class CheckpointController:
                 self.last_checkpoint_timestamp = current_dt
             self.last_status = norm_status
 
-        return freq, should_save
+        return float(target_interval), should_save
 
     def record_failure(self, timestamp: Optional[Union[str, datetime]] = None):
         """Explicitly records and preserves the terminal physical failure checkpoint."""

@@ -12,6 +12,7 @@ from .replay_engine import replay_engine
 from .failure_detector import failure_detector
 from .websocket_manager import manager
 from .database import SessionLocal
+from .adaptive_snapshot_storage import storage_engine
 
 class SimulationEngine:
     def __init__(self):
@@ -66,13 +67,8 @@ class SimulationEngine:
                     # Post-failure window capture complete: hold playback state for trajectory replay
                     self.is_running = False
 
-                # 7. Optionally save to DB (only if checkpoint says so)
-                if should_save:
-                    db = SessionLocal()
-                    db_state = MachineStateDB(**psv.model_dump())
-                    db.add(db_state)
-                    db.commit()
-                    db.close()
+                # 7. Use adaptive storage engine
+                storage_decision = storage_engine.evaluate_and_store(psv, interval_due_should_save=should_save, is_failure=is_fail)
 
                 # 8. Broadcast state
                 await manager.broadcast_state({
@@ -118,6 +114,7 @@ class SimulationEngine:
         ring_buffer.reset()
         checkpoint_controller.reset()
         replay_engine.reset()
+        storage_engine.reset()
         dataset_loader.seek_pre_failure_by_timestamp(lead_seconds=settings.PRE_FAILURE_LEAD_SECONDS)
         self.start()
 
@@ -128,5 +125,6 @@ class SimulationEngine:
         ring_buffer.reset()
         checkpoint_controller.reset()
         replay_engine.reset()
+        storage_engine.reset()
 
 simulation_engine = SimulationEngine()

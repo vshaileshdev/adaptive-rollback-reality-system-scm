@@ -13,23 +13,22 @@ class AnomalyDetector:
     def _train_baseline(self):
         try:
             baseline_data = dataset_loader.get_normal_baseline()
-            if len(baseline_data) > 0:
-                self.model.fit(baseline_data)
-                self.is_trained = True
-                return
+            if len(baseline_data) == 0:
+                raise ValueError("Baseline dataset is empty.")
+            
+            self.model.fit(baseline_data)
+            self.is_trained = True
+            
+            # Calculate and store baseline statistics for root cause analysis
+            self.baseline_stats = {
+                "air_temperature": {"mean": np.mean(baseline_data[:, 0]), "std": np.std(baseline_data[:, 0])},
+                "process_temperature": {"mean": np.mean(baseline_data[:, 1]), "std": np.std(baseline_data[:, 1])},
+                "rotational_speed": {"mean": np.mean(baseline_data[:, 2]), "std": np.std(baseline_data[:, 2])},
+                "torque": {"mean": np.mean(baseline_data[:, 3]), "std": np.std(baseline_data[:, 3])},
+                "vibration": {"mean": np.mean(baseline_data[:, 4]), "std": np.std(baseline_data[:, 4])}
+            }
         except Exception as e:
-            print(f"Warning: Failed to load baseline from dataset: {e}")
-
-        # Fallback baseline with expected physical ranges if dataset unavailable during init
-        dummy_data = np.array([
-            [22.8, 43.3, 1485.0, 41.0, 0.10],
-            [22.9, 43.5, 1486.0, 41.2, 0.10],
-            [22.7, 43.2, 1484.0, 40.9, 0.11],
-            [22.8, 43.4, 1485.5, 41.1, 0.09],
-            [22.8, 43.3, 1485.0, 41.0, 0.10]
-        ])
-        self.model.fit(dummy_data)
-        self.is_trained = True
+            raise RuntimeError(f"Initialization Error: A verified normal baseline is required. Failed to load baseline from dataset: {e}")
 
     def calculate_anomaly_score(self, psv) -> tuple[float, str]:
         """
